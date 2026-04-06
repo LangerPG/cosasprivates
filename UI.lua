@@ -439,7 +439,48 @@ local function NewToggle(parent, label, sub, default, callback)
     knob.Parent           = track
     Corner(knob, 7)
 
-    local state = default or false
+    local state  = default or false
+    local locked = false
+
+    -- ── Overlay de bloqueo ──────────────────────────────────────────
+    local lockOverlay = Instance.new("Frame")
+    lockOverlay.Name                  = "LockOverlay"
+    lockOverlay.Size                  = UDim2.new(1, 0, 1, 0)
+    lockOverlay.BackgroundColor3      = Color3.fromRGB(0, 0, 0)
+    lockOverlay.BackgroundTransparency = 0.40
+    lockOverlay.BorderSizePixel       = 0
+    lockOverlay.ZIndex                = 10
+    lockOverlay.Visible               = false
+    lockOverlay.Parent                = f
+    Corner(lockOverlay, 4)
+
+    -- Icono de candado
+    local lockIcon = Instance.new("TextLabel")
+    lockIcon.Size                 = UDim2.new(0, 18, 1, 0)
+    lockIcon.Position             = UDim2.new(0.5, -42, 0, 0)
+    lockIcon.BackgroundTransparency = 1
+    lockIcon.Text                 = "🔒"
+    lockIcon.TextSize             = 13
+    lockIcon.Font                 = Enum.Font.GothamSemibold
+    lockIcon.TextColor3           = Color3.fromRGB(200, 200, 200)
+    lockIcon.TextXAlignment       = Enum.TextXAlignment.Center
+    lockIcon.TextYAlignment       = Enum.TextYAlignment.Center
+    lockIcon.ZIndex               = 11
+    lockIcon.Parent               = lockOverlay
+
+    -- Texto "Locked"
+    local lockTxt = Instance.new("TextLabel")
+    lockTxt.Size                 = UDim2.new(0, 56, 1, 0)
+    lockTxt.Position             = UDim2.new(0.5, -22, 0, 0)
+    lockTxt.BackgroundTransparency = 1
+    lockTxt.Text                 = "Locked"
+    lockTxt.TextSize             = 13
+    lockTxt.Font                 = Enum.Font.GothamSemibold
+    lockTxt.TextColor3           = Color3.fromRGB(200, 200, 200)
+    lockTxt.TextXAlignment       = Enum.TextXAlignment.Left
+    lockTxt.TextYAlignment       = Enum.TextYAlignment.Center
+    lockTxt.ZIndex               = 11
+    lockTxt.Parent               = lockOverlay
 
     local btn = Instance.new("TextButton")
     btn.Size                 = UDim2.new(1, 0, 1, 0)
@@ -457,20 +498,33 @@ local function NewToggle(parent, label, sub, default, callback)
         }):Play()
     end
 
+    local function setLocked(isLocked)
+        locked = isLocked
+        lockOverlay.Visible = isLocked
+        -- Si se bloquea, forzar toggle OFF visualmente
+        if isLocked then
+            setState(false)
+        end
+    end
+
     btn.MouseButton1Click:Connect(function()
+        if locked then return end
         setState(not state)
         if callback then callback(state) end
     end)
     btn.MouseEnter:Connect(function()
+        if locked then return end
         TweenService:Create(f, TweenInfo.new(0.1), {BackgroundColor3 = T.ElemHov}):Play()
         TweenService:Create(stroke, TweenInfo.new(0.1), {Color = Color3.fromRGB(48, 48, 48)}):Play()
     end)
     btn.MouseLeave:Connect(function()
+        if locked then return end
         TweenService:Create(f, TweenInfo.new(0.1), {BackgroundColor3 = T.Elem}):Play()
         TweenService:Create(stroke, TweenInfo.new(0.1), {Color = T.BorderDim}):Play()
     end)
 
-    return f, setState
+    -- Devuelve: frame, setState, setLocked
+    return f, setState, setLocked
 end
 
 -- ══════════════════════════════════════════════════════════════════
