@@ -1,5 +1,5 @@
 -- ╔═══════════════════════════════════════════════════════════════╗
--- ║         iDepHub UI Library  —  By LangerPG  |  v2.0           ║            ║
+-- ║         iDepHub UI Library  —  By LangerPG  |  v2.1           ║
 -- ╚═══════════════════════════════════════════════════════════════╝
 
 -- ══════════════════════════════════════════════════════════════════
@@ -225,17 +225,28 @@ contentFrame.Parent           = bodyFrame
 -- ══════════════════════════════════════════════════════════════════
 local registeredTabs = {}
 
+-- SelectTab actualizado: soporta customPanel y onTabSelected por tab
 local function SelectTab(target)
     for _, td in ipairs(registeredTabs) do
-        td.page.Visible = false
+        td.page.Visible   = false
         td.accent.Visible = false
-        TweenService:Create(td.btn,    TweenInfo.new(0.12), {BackgroundColor3 = T.TabInactive}):Play()
-        TweenService:Create(td.nameLbl,TweenInfo.new(0.12), {TextColor3       = T.TextDim    }):Play()
+        TweenService:Create(td.btn,     TweenInfo.new(0.12), {BackgroundColor3 = T.TabInactive}):Play()
+        TweenService:Create(td.nameLbl, TweenInfo.new(0.12), {TextColor3       = T.TextDim    }):Play()
+        -- Ocultar paneles custom de tabs no activos
+        if td.customPanel then td.customPanel.Visible = false end
     end
-    target.page.Visible   = true
     target.accent.Visible = true
-    TweenService:Create(target.btn,    TweenInfo.new(0.12), {BackgroundColor3 = T.TabActive}):Play()
-    TweenService:Create(target.nameLbl,TweenInfo.new(0.12), {TextColor3       = T.Text     }):Play()
+    TweenService:Create(target.btn,     TweenInfo.new(0.12), {BackgroundColor3 = T.TabActive}):Play()
+    TweenService:Create(target.nameLbl, TweenInfo.new(0.12), {TextColor3       = T.Text     }):Play()
+    -- Si el tab tiene panel custom, mostrarlo en vez del ScrollingFrame vacío
+    if target.customPanel then
+        target.page.Visible        = false
+        target.customPanel.Visible = true
+    else
+        target.page.Visible = true
+    end
+    -- Callback opcional al seleccionar el tab
+    if target.onTabSelected then target.onTabSelected() end
 end
 
 local function NewTab(name, icon, order)
@@ -311,15 +322,16 @@ local function NewTab(name, icon, order)
 
     btn.MouseButton1Click:Connect(function() SelectTab(tabData) end)
     btn.MouseEnter:Connect(function()
-        if page.Visible then return end
+        if page.Visible or (tabData.customPanel and tabData.customPanel.Visible) then return end
         TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = T.TabActive}):Play()
     end)
     btn.MouseLeave:Connect(function()
-        if page.Visible then return end
+        if page.Visible or (tabData.customPanel and tabData.customPanel.Visible) then return end
         TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = T.TabInactive}):Play()
     end)
 
-    return page
+    -- Devuelve page Y tabData para poder pasarlo a NewSearchPanel o SelectTab
+    return page, tabData
 end
 
 -- ══════════════════════════════════════════════════════════════════
@@ -454,7 +466,6 @@ local function NewToggle(parent, label, sub, default, callback)
     lockOverlay.Parent                = f
     Corner(lockOverlay, 4)
 
-    -- Icono de candado
     local lockIcon = Instance.new("TextLabel")
     lockIcon.Size                 = UDim2.new(0, 18, 1, 0)
     lockIcon.Position             = UDim2.new(0.5, -42, 0, 0)
@@ -468,7 +479,6 @@ local function NewToggle(parent, label, sub, default, callback)
     lockIcon.ZIndex               = 11
     lockIcon.Parent               = lockOverlay
 
-    -- Texto "Locked"
     local lockTxt = Instance.new("TextLabel")
     lockTxt.Size                 = UDim2.new(0, 56, 1, 0)
     lockTxt.Position             = UDim2.new(0.5, -22, 0, 0)
@@ -501,10 +511,7 @@ local function NewToggle(parent, label, sub, default, callback)
     local function setLocked(isLocked)
         locked = isLocked
         lockOverlay.Visible = isLocked
-        -- Si se bloquea, forzar toggle OFF visualmente
-        if isLocked then
-            setState(false)
-        end
+        if isLocked then setState(false) end
     end
 
     btn.MouseButton1Click:Connect(function()
@@ -523,7 +530,6 @@ local function NewToggle(parent, label, sub, default, callback)
         TweenService:Create(stroke, TweenInfo.new(0.1), {Color = T.BorderDim}):Play()
     end)
 
-    -- Devuelve: frame, setState, setLocked
     return f, setState, setLocked
 end
 
@@ -1079,6 +1085,280 @@ local function NewColorPicker(parent, label, sub, defaultColor, callback)
 end
 
 -- ══════════════════════════════════════════════════════════════════
+--   SEARCH PANEL  — buscador de ítems con selector de cantidad
+--
+--   Uso:
+--       NewSearchPanel(tabData, {
+--           getWeapons = function() return {"Rifle", "Knife", ...} end,
+--           onSend     = function(weaponName, amount) ... end,
+--       })
+--
+--   El panel se registra como `customPanel` del tabData indicado, de
+--   modo que SelectTab lo muestra/oculta automáticamente.
+-- ══════════════════════════════════════════════════════════════════
+local function NewSearchPanel(searchTabData, opts)
+    local getWeapons = opts and opts.getWeapons
+    local onSend     = opts and opts.onSend
+
+    local selectedWeapon  = nil
+    local selectedAmount  = 1
+    local weaponRowFrames = {}
+
+    -- ── Contenedor principal (overlays el área de contenido) ─────
+    local searchOuter = Instance.new("Frame")
+    searchOuter.Size              = UDim2.new(1, -118, 1, 0)
+    searchOuter.Position          = UDim2.new(0, 118, 0, 0)
+    searchOuter.BackgroundTransparency = 1
+    searchOuter.BorderSizePixel   = 0
+    searchOuter.ClipsDescendants  = false
+    searchOuter.Visible           = false
+    searchOuter.Parent            = bodyFrame
+
+    -- ── Barra de búsqueda ────────────────────────────────────────
+    local searchBarBg = Instance.new("Frame")
+    searchBarBg.Size             = UDim2.new(1, -18, 0, 32)
+    searchBarBg.Position         = UDim2.new(0, 9, 0, 8)
+    searchBarBg.BackgroundColor3 = T.Elem
+    searchBarBg.BorderSizePixel  = 0
+    searchBarBg.Parent           = searchOuter
+    Corner(searchBarBg, 6)
+    Stroke(searchBarBg, T.Border, 1)
+
+    local searchIcon = Instance.new("TextLabel")
+    searchIcon.Size                 = UDim2.new(0, 28, 1, 0)
+    searchIcon.BackgroundTransparency = 1
+    searchIcon.Text                 = "🔍"
+    searchIcon.TextSize             = 13
+    searchIcon.Font                 = Enum.Font.GothamSemibold
+    searchIcon.TextXAlignment       = Enum.TextXAlignment.Center
+    searchIcon.Parent               = searchBarBg
+
+    local searchBox = Instance.new("TextBox")
+    searchBox.Size              = UDim2.new(1, -36, 1, 0)
+    searchBox.Position          = UDim2.new(0, 28, 0, 0)
+    searchBox.BackgroundTransparency = 1
+    searchBox.BorderSizePixel   = 0
+    searchBox.PlaceholderText   = "Buscar arma..."
+    searchBox.PlaceholderColor3 = T.TextDim
+    searchBox.Text              = ""
+    searchBox.TextColor3        = T.Text
+    searchBox.TextSize          = 12
+    searchBox.Font              = Enum.Font.Gotham
+    searchBox.TextXAlignment    = Enum.TextXAlignment.Left
+    searchBox.ClearTextOnFocus  = false
+    searchBox.Parent            = searchBarBg
+
+    -- ── Lista de armas (ScrollingFrame) ──────────────────────────
+    local listFrame = Instance.new("ScrollingFrame")
+    listFrame.Size                  = UDim2.new(1, -18, 1, -130)
+    listFrame.Position              = UDim2.new(0, 9, 0, 48)
+    listFrame.BackgroundColor3      = T.Elem
+    listFrame.BorderSizePixel       = 0
+    listFrame.ScrollBarThickness    = 3
+    listFrame.ScrollBarImageColor3  = T.Accent
+    listFrame.CanvasSize            = UDim2.new(0, 0, 0, 0)
+    listFrame.AutomaticCanvasSize   = Enum.AutomaticSize.Y
+    listFrame.Parent                = searchOuter
+    Corner(listFrame, 6)
+    Stroke(listFrame, T.BorderDim, 1)
+
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    listLayout.Padding   = UDim.new(0, 2)
+    listLayout.Parent    = listFrame
+
+    local listPad = Instance.new("UIPadding")
+    listPad.PaddingTop    = UDim.new(0, 4)
+    listPad.PaddingBottom = UDim.new(0, 4)
+    listPad.PaddingLeft   = UDim.new(0, 4)
+    listPad.PaddingRight  = UDim.new(0, 4)
+    listPad.Parent        = listFrame
+
+    -- ── Panel inferior (selección + cantidad + enviar) ────────────
+    local bottomPanel = Instance.new("Frame")
+    bottomPanel.Size             = UDim2.new(1, -18, 0, 68)
+    bottomPanel.Position         = UDim2.new(0, 9, 1, -74)
+    bottomPanel.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    bottomPanel.BorderSizePixel  = 0
+    bottomPanel.Parent           = searchOuter
+    Corner(bottomPanel, 6)
+    Stroke(bottomPanel, T.BorderDim, 1)
+
+    local selLabel = Instance.new("TextLabel")
+    selLabel.Size                 = UDim2.new(1, -12, 0, 20)
+    selLabel.Position             = UDim2.new(0, 8, 0, 4)
+    selLabel.BackgroundTransparency = 1
+    selLabel.Text                 = "Seleccionado: ninguno"
+    selLabel.TextColor3           = T.TextDim
+    selLabel.TextSize             = 11
+    selLabel.Font                 = Enum.Font.Gotham
+    selLabel.TextXAlignment       = Enum.TextXAlignment.Left
+    selLabel.TextTruncate         = Enum.TextTruncate.AtEnd
+    selLabel.Parent               = bottomPanel
+
+    local minusBtn = Instance.new("TextButton")
+    minusBtn.Size             = UDim2.new(0, 26, 0, 26)
+    minusBtn.Position         = UDim2.new(0, 8, 0, 28)
+    minusBtn.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    minusBtn.BorderSizePixel  = 0
+    minusBtn.Text             = "−"
+    minusBtn.TextColor3       = T.Accent
+    minusBtn.TextSize         = 16
+    minusBtn.Font             = Enum.Font.GothamBold
+    minusBtn.AutoButtonColor  = false
+    minusBtn.Parent           = bottomPanel
+    Corner(minusBtn, 4)
+
+    local amountLabel = Instance.new("TextLabel")
+    amountLabel.Size                 = UDim2.new(0, 40, 0, 26)
+    amountLabel.Position             = UDim2.new(0, 38, 0, 28)
+    amountLabel.BackgroundTransparency = 1
+    amountLabel.Text                 = "1"
+    amountLabel.TextColor3           = T.Text
+    amountLabel.TextSize             = 13
+    amountLabel.Font                 = Enum.Font.GothamBold
+    amountLabel.TextXAlignment       = Enum.TextXAlignment.Center
+    amountLabel.Parent               = bottomPanel
+
+    local plusBtn = Instance.new("TextButton")
+    plusBtn.Size             = UDim2.new(0, 26, 0, 26)
+    plusBtn.Position         = UDim2.new(0, 82, 0, 28)
+    plusBtn.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    plusBtn.BorderSizePixel  = 0
+    plusBtn.Text             = "+"
+    plusBtn.TextColor3       = T.Accent
+    plusBtn.TextSize         = 16
+    plusBtn.Font             = Enum.Font.GothamBold
+    plusBtn.AutoButtonColor  = false
+    plusBtn.Parent           = bottomPanel
+    Corner(plusBtn, 4)
+
+    local sendBtn = Instance.new("TextButton")
+    sendBtn.Size             = UDim2.new(0, 110, 0, 26)
+    sendBtn.Position         = UDim2.new(1, -118, 0, 28)
+    sendBtn.BackgroundColor3 = T.AccentDark
+    sendBtn.BorderSizePixel  = 0
+    sendBtn.Text             = "Enviar arma"
+    sendBtn.TextColor3       = Color3.fromRGB(230, 230, 230)
+    sendBtn.TextSize         = 12
+    sendBtn.Font             = Enum.Font.GothamSemibold
+    sendBtn.AutoButtonColor  = false
+    sendBtn.Parent           = bottomPanel
+    Corner(sendBtn, 4)
+
+    sendBtn.MouseEnter:Connect(function()
+        TweenService:Create(sendBtn, TweenInfo.new(0.1), {BackgroundColor3 = T.Accent}):Play()
+    end)
+    sendBtn.MouseLeave:Connect(function()
+        TweenService:Create(sendBtn, TweenInfo.new(0.1), {BackgroundColor3 = T.AccentDark}):Play()
+    end)
+
+    -- ── Lógica interna ───────────────────────────────────────────
+    local function SetSelected(name, rowData)
+        for _, rf in ipairs(weaponRowFrames) do
+            TweenService:Create(rf.frame, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(15, 15, 15)}):Play()
+            rf.lbl.TextColor3 = T.TextDim
+        end
+        selectedWeapon = name
+        if name and rowData then
+            TweenService:Create(rowData.frame, TweenInfo.new(0.1), {BackgroundColor3 = T.AccentDark}):Play()
+            rowData.lbl.TextColor3 = T.Text
+            selLabel.Text       = "Seleccionado: " .. name
+            selLabel.TextColor3 = T.TextRed
+        else
+            selLabel.Text       = "Seleccionado: ninguno"
+            selLabel.TextColor3 = T.TextDim
+        end
+    end
+
+    local function BuildList(filter)
+        for _, rf in ipairs(weaponRowFrames) do rf.frame:Destroy() end
+        weaponRowFrames = {}
+        selectedWeapon  = nil
+        selLabel.Text       = "Seleccionado: ninguno"
+        selLabel.TextColor3 = T.TextDim
+
+        local weapons = getWeapons and getWeapons() or {}
+        local seen, unique = {}, {}
+        for _, w in ipairs(weapons) do
+            if not seen[w] then seen[w] = true; table.insert(unique, w) end
+        end
+
+        local filterLower = filter and filter:lower() or ""
+        for _, weaponName in ipairs(unique) do
+            if filterLower == "" or weaponName:lower():find(filterLower, 1, true) then
+                local row = Instance.new("Frame")
+                row.Size             = UDim2.new(1, 0, 0, 28)
+                row.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+                row.BorderSizePixel  = 0
+                row.Parent           = listFrame
+                Corner(row, 4)
+
+                local rowLbl = Instance.new("TextLabel")
+                rowLbl.Size                 = UDim2.new(1, -10, 1, 0)
+                rowLbl.Position             = UDim2.new(0, 8, 0, 0)
+                rowLbl.BackgroundTransparency = 1
+                rowLbl.Text                 = weaponName
+                rowLbl.TextColor3           = T.TextDim
+                rowLbl.TextSize             = 11
+                rowLbl.Font                 = Enum.Font.Gotham
+                rowLbl.TextXAlignment       = Enum.TextXAlignment.Left
+                rowLbl.TextTruncate         = Enum.TextTruncate.AtEnd
+                rowLbl.Parent               = row
+
+                local rowBtn = Instance.new("TextButton")
+                rowBtn.Size                 = UDim2.new(1, 0, 1, 0)
+                rowBtn.BackgroundTransparency = 1
+                rowBtn.Text                 = ""
+                rowBtn.Parent               = row
+
+                local rowData = {frame = row, lbl = rowLbl}
+                table.insert(weaponRowFrames, rowData)
+
+                rowBtn.MouseButton1Click:Connect(function() SetSelected(weaponName, rowData) end)
+                rowBtn.MouseEnter:Connect(function()
+                    if selectedWeapon == weaponName then return end
+                    TweenService:Create(row, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(22, 22, 22)}):Play()
+                end)
+                rowBtn.MouseLeave:Connect(function()
+                    if selectedWeapon == weaponName then return end
+                    TweenService:Create(row, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(15, 15, 15)}):Play()
+                end)
+            end
+        end
+    end
+
+    -- Filtrar en tiempo real
+    searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        BuildList(searchBox.Text)
+    end)
+
+    -- Controles de cantidad
+    minusBtn.MouseButton1Click:Connect(function()
+        if selectedAmount > 1 then
+            selectedAmount -= 1
+            amountLabel.Text = tostring(selectedAmount)
+        end
+    end)
+    plusBtn.MouseButton1Click:Connect(function()
+        if selectedAmount < 999 then
+            selectedAmount += 1
+            amountLabel.Text = tostring(selectedAmount)
+        end
+    end)
+
+    -- Enviar arma seleccionada
+    sendBtn.MouseButton1Click:Connect(function()
+        if not selectedWeapon then return end
+        if onSend then onSend(selectedWeapon, selectedAmount) end
+    end)
+
+    -- Registrar el panel custom en el tabData para que SelectTab lo gestione
+    searchTabData.customPanel   = searchOuter
+    searchTabData.onTabSelected = function() BuildList(searchBox.Text) end
+end
+
+-- ══════════════════════════════════════════════════════════════════
 --   DRAG  (arrastrar la ventana por el topBar)
 -- ══════════════════════════════════════════════════════════════════
 local isDragging, dragStart, frameStart = false, nil, nil
@@ -1108,18 +1388,19 @@ UserInputService.InputChanged:Connect(function(inp)
 end)
 
 -- ══════════════════════════════════════════════════════════════════
---   API PÚBLICA  (lo que devuelve la librería)
+--   API PÚBLICA
 -- ══════════════════════════════════════════════════════════════════
 return {
-    NewTab         = NewTab,
-    NewSection     = NewSection,
-    NewToggle      = NewToggle,
-    NewSlider      = NewSlider,
-    NewButton      = NewButton,
-    NewKeybind     = NewKeybind,
-    NewLabel       = NewLabel,
-    NewColorPicker = NewColorPicker,
-    SelectTab      = SelectTab,
-    registeredTabs = registeredTabs,
-    mainFrame      = mainFrame,
+    NewTab          = NewTab,
+    NewSection      = NewSection,
+    NewToggle       = NewToggle,
+    NewSlider       = NewSlider,
+    NewButton       = NewButton,
+    NewKeybind      = NewKeybind,
+    NewLabel        = NewLabel,
+    NewColorPicker  = NewColorPicker,
+    NewSearchPanel  = NewSearchPanel,   -- ← nuevo
+    SelectTab       = SelectTab,
+    registeredTabs  = registeredTabs,
+    mainFrame       = mainFrame,
 }
