@@ -707,6 +707,84 @@ local function NewButton(parent, label, sub, callback)
 end
 
 -- ══════════════════════════════════════════════════════════════════
+--   INPUT  (cuadro de texto con label)
+-- ══════════════════════════════════════════════════════════════════
+local function NewInput(parent, label, placeholder, callback)
+    local f, stroke = ElemBase(parent, 46)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size              = UDim2.new(0.48, -10, 0, 18)
+    lbl.Position          = UDim2.new(0, 10, 0, 7)
+    lbl.BackgroundTransparency = 1
+    lbl.Text              = label
+    lbl.TextColor3        = T.Text
+    lbl.TextSize          = 13
+    lbl.Font              = Enum.Font.GothamBold
+    lbl.TextXAlignment    = Enum.TextXAlignment.Left
+    lbl.TextTruncate      = Enum.TextTruncate.AtEnd
+    lbl.Parent            = f
+
+    local subLbl = Instance.new("TextLabel")
+    subLbl.Size              = UDim2.new(0.48, -10, 0, 12)
+    subLbl.Position          = UDim2.new(0, 10, 0, 26)
+    subLbl.BackgroundTransparency = 1
+    subLbl.Text              = "Escribe un valor"
+    subLbl.TextColor3        = T.TextDim
+    subLbl.TextSize          = 10
+    subLbl.Font              = Enum.Font.Gotham
+    subLbl.TextXAlignment    = Enum.TextXAlignment.Left
+    subLbl.TextTruncate      = Enum.TextTruncate.AtEnd
+    subLbl.Parent            = f
+
+    -- Caja de texto a la derecha
+    local boxBg = Instance.new("Frame")
+    boxBg.Size             = UDim2.new(0.52, -14, 0, 28)
+    boxBg.Position         = UDim2.new(0.48, 0, 0.5, -14)
+    boxBg.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    boxBg.BorderSizePixel  = 0
+    boxBg.Parent           = f
+    Corner(boxBg, 4)
+    local boxStroke = Stroke(boxBg, T.BorderDim, 1)
+
+    local textBox = Instance.new("TextBox")
+    textBox.Size                 = UDim2.new(1, -12, 1, 0)
+    textBox.Position             = UDim2.new(0, 6, 0, 0)
+    textBox.BackgroundTransparency = 1
+    textBox.Text                 = ""
+    textBox.PlaceholderText      = placeholder or "..."
+    textBox.PlaceholderColor3    = T.TextDim
+    textBox.TextColor3           = T.Accent
+    textBox.TextSize             = 12
+    textBox.Font                 = Enum.Font.GothamSemibold
+    textBox.TextXAlignment       = Enum.TextXAlignment.Center
+    textBox.ClearTextOnFocus     = false
+    textBox.Parent               = boxBg
+
+    -- Resaltar borde al enfocar
+    textBox.Focused:Connect(function()
+        TweenService:Create(boxStroke, TweenInfo.new(0.1), {Color = T.Accent}):Play()
+        TweenService:Create(f,         TweenInfo.new(0.1), {BackgroundColor3 = T.ElemHov}):Play()
+        TweenService:Create(stroke,    TweenInfo.new(0.1), {Color = T.Accent}):Play()
+    end)
+    textBox.FocusLost:Connect(function(enterPressed)
+        TweenService:Create(boxStroke, TweenInfo.new(0.1), {Color = T.BorderDim}):Play()
+        TweenService:Create(f,         TweenInfo.new(0.1), {BackgroundColor3 = T.Elem}):Play()
+        TweenService:Create(stroke,    TweenInfo.new(0.1), {Color = T.BorderDim}):Play()
+        if callback then callback(textBox.Text) end
+    end)
+
+    -- Hover sobre el elemento entero
+    f.MouseEnter:Connect(function()
+        TweenService:Create(f, TweenInfo.new(0.1), {BackgroundColor3 = T.ElemHov}):Play()
+    end)
+    f.MouseLeave:Connect(function()
+        TweenService:Create(f, TweenInfo.new(0.1), {BackgroundColor3 = T.Elem}):Play()
+    end)
+
+    return f, textBox
+end
+
+-- ══════════════════════════════════════════════════════════════════
 --   KEYBIND
 -- ══════════════════════════════════════════════════════════════════
 local function NewKeybind(parent, label, sub, defaultKey, callback)
@@ -1396,6 +1474,7 @@ return {
     NewToggle       = NewToggle,
     NewSlider       = NewSlider,
     NewButton       = NewButton,
+    NewInput        = NewInput,
     NewKeybind      = NewKeybind,
     NewLabel        = NewLabel,
     NewColorPicker  = NewColorPicker,
