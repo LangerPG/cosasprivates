@@ -112,7 +112,7 @@ local titleLabel = Instance.new("TextLabel")
 titleLabel.Size               = UDim2.new(1, -92, 1, 0)
 titleLabel.Position           = UDim2.new(0, 28, 0, 0)
 titleLabel.BackgroundTransparency = 1
-titleLabel.Text               = "💠 iDepHub [Duelos]"
+titleLabel.Text               = "UI Library - Nyther"
 titleLabel.TextColor3         = T.Text
 titleLabel.TextSize           = 14
 titleLabel.Font               = Enum.Font.GothamSemibold
@@ -232,12 +232,20 @@ local function SelectTab(target)
         td.accent.Visible = false
         TweenService:Create(td.btn,     TweenInfo.new(0.12), {BackgroundColor3 = T.TabInactive}):Play()
         TweenService:Create(td.nameLbl, TweenInfo.new(0.12), {TextColor3       = T.TextDim    }):Play()
+        -- Tint de ícono imagen al desactivar
+        if td.iconImg then
+            TweenService:Create(td.iconImg, TweenInfo.new(0.12), {ImageColor3 = T.TextDim}):Play()
+        end
         -- Ocultar paneles custom de tabs no activos
         if td.customPanel then td.customPanel.Visible = false end
     end
     target.accent.Visible = true
     TweenService:Create(target.btn,     TweenInfo.new(0.12), {BackgroundColor3 = T.TabActive}):Play()
     TweenService:Create(target.nameLbl, TweenInfo.new(0.12), {TextColor3       = T.Text     }):Play()
+    -- Tint de ícono imagen al activar
+    if target.iconImg then
+        TweenService:Create(target.iconImg, TweenInfo.new(0.12), {ImageColor3 = T.Accent}):Play()
+    end
     -- Si el tab tiene panel custom, mostrarlo en vez del ScrollingFrame vacío
     if target.customPanel then
         target.page.Visible        = false
@@ -271,15 +279,32 @@ local function NewTab(name, icon, order)
     accentBar.Parent           = btn
     Instance.new("UICorner", accentBar).CornerRadius = UDim.new(0, 2)
 
-    local iconLbl = Instance.new("TextLabel")
-    iconLbl.Size                 = UDim2.new(0, 22, 1, 0)
-    iconLbl.Position             = UDim2.new(0, 9, 0, 0)
-    iconLbl.BackgroundTransparency = 1
-    iconLbl.Text                 = icon
-    iconLbl.TextSize             = 14
-    iconLbl.Font                 = Enum.Font.GothamSemibold
-    iconLbl.TextXAlignment       = Enum.TextXAlignment.Center
-    iconLbl.Parent               = btn
+    -- Ícono: si es número o string numérico → ImageLabel; si no → TextLabel
+    local iconIsImage = (type(icon) == "number") or
+                        (type(icon) == "string" and (icon:match("^%d+$") or icon:match("^rbxassetid://")))
+
+    if iconIsImage then
+        local rawId = type(icon) == "number" and tostring(icon)
+                      or (icon:match("^%d+$") and icon or icon:gsub("rbxassetid://",""))
+        local iconImg = Instance.new("ImageLabel")
+        iconImg.Size                 = UDim2.new(0, 18, 0, 18)
+        iconImg.Position             = UDim2.new(0, 10, 0.5, -9)
+        iconImg.BackgroundTransparency = 1
+        iconImg.Image                = "rbxassetid://" .. rawId
+        iconImg.ImageColor3          = T.TextDim
+        iconImg.ScaleType            = Enum.ScaleType.Fit
+        iconImg.Parent               = btn
+    else
+        local iconLbl = Instance.new("TextLabel")
+        iconLbl.Size                 = UDim2.new(0, 22, 1, 0)
+        iconLbl.Position             = UDim2.new(0, 9, 0, 0)
+        iconLbl.BackgroundTransparency = 1
+        iconLbl.Text                 = icon
+        iconLbl.TextSize             = 15
+        iconLbl.Font                 = Enum.Font.GothamSemibold
+        iconLbl.TextXAlignment       = Enum.TextXAlignment.Center
+        iconLbl.Parent               = btn
+    end
 
     local nameLbl = Instance.new("TextLabel")
     nameLbl.Name                 = "Label"
@@ -288,8 +313,8 @@ local function NewTab(name, icon, order)
     nameLbl.BackgroundTransparency = 1
     nameLbl.Text                 = name
     nameLbl.TextColor3           = T.TextDim
-    nameLbl.TextSize             = 12
-    nameLbl.Font                 = Enum.Font.Gotham
+    nameLbl.TextSize             = 13
+    nameLbl.Font                 = Enum.Font.GothamSemibold
     nameLbl.TextXAlignment       = Enum.TextXAlignment.Left
     nameLbl.TextTruncate         = Enum.TextTruncate.AtEnd
     nameLbl.Parent               = btn
@@ -317,7 +342,7 @@ local function NewTab(name, icon, order)
     pagePad.PaddingRight  = UDim.new(0, 10)
     pagePad.Parent        = page
 
-    local tabData = {btn = btn, accent = accentBar, nameLbl = nameLbl, page = page}
+    local tabData = {btn = btn, accent = accentBar, nameLbl = nameLbl, page = page, iconImg = iconIsImage and btn:FindFirstChildOfClass("ImageLabel") or nil}
     table.insert(registeredTabs, tabData)
 
     btn.MouseButton1Click:Connect(function() SelectTab(tabData) end)
@@ -424,12 +449,12 @@ local function NewToggle(parent, label, sub, default, callback)
     lbl.Parent            = f
 
     local subLbl = Instance.new("TextLabel")
-    subLbl.Size              = UDim2.new(1, -58, 0, 12)
-    subLbl.Position          = UDim2.new(0, 10, 0, 26)
+    subLbl.Size              = UDim2.new(1, -58, 0, 14)
+    subLbl.Position          = UDim2.new(0, 10, 0, 25)
     subLbl.BackgroundTransparency = 1
     subLbl.Text              = sub
     subLbl.TextColor3        = T.TextDim
-    subLbl.TextSize          = 10
+    subLbl.TextSize          = 12
     subLbl.Font              = Enum.Font.Gotham
     subLbl.TextXAlignment    = Enum.TextXAlignment.Left
     subLbl.TextTruncate      = Enum.TextTruncate.AtEnd
@@ -552,12 +577,12 @@ local function NewSlider(parent, label, sub, minVal, maxVal, default, callback)
     lbl.Parent            = f
 
     local subLbl = Instance.new("TextLabel")
-    subLbl.Size              = UDim2.new(0.62, 0, 0, 12)
+    subLbl.Size              = UDim2.new(0.62, 0, 0, 14)
     subLbl.Position          = UDim2.new(0, 10, 0, 25)
     subLbl.BackgroundTransparency = 1
     subLbl.Text              = sub
     subLbl.TextColor3        = T.TextDim
-    subLbl.TextSize          = 10
+    subLbl.TextSize          = 12
     subLbl.Font              = Enum.Font.Gotham
     subLbl.TextXAlignment    = Enum.TextXAlignment.Left
     subLbl.TextTruncate      = Enum.TextTruncate.AtEnd
@@ -660,12 +685,12 @@ local function NewButton(parent, label, sub, callback)
     lbl.Parent            = f
 
     local subLbl = Instance.new("TextLabel")
-    subLbl.Size              = UDim2.new(1, -50, 0, 12)
-    subLbl.Position          = UDim2.new(0, 10, 0, 26)
+    subLbl.Size              = UDim2.new(1, -50, 0, 14)
+    subLbl.Position          = UDim2.new(0, 10, 0, 25)
     subLbl.BackgroundTransparency = 1
     subLbl.Text              = sub
     subLbl.TextColor3        = T.TextDim
-    subLbl.TextSize          = 10
+    subLbl.TextSize          = 12
     subLbl.Font              = Enum.Font.Gotham
     subLbl.TextXAlignment    = Enum.TextXAlignment.Left
     subLbl.TextTruncate      = Enum.TextTruncate.AtEnd
@@ -725,12 +750,12 @@ local function NewInput(parent, label, placeholder, callback)
     lbl.Parent            = f
 
     local subLbl = Instance.new("TextLabel")
-    subLbl.Size              = UDim2.new(0.48, -10, 0, 12)
-    subLbl.Position          = UDim2.new(0, 10, 0, 26)
+    subLbl.Size              = UDim2.new(0.48, -10, 0, 14)
+    subLbl.Position          = UDim2.new(0, 10, 0, 25)
     subLbl.BackgroundTransparency = 1
     subLbl.Text              = "Escribe un valor"
     subLbl.TextColor3        = T.TextDim
-    subLbl.TextSize          = 10
+    subLbl.TextSize          = 12
     subLbl.Font              = Enum.Font.Gotham
     subLbl.TextXAlignment    = Enum.TextXAlignment.Left
     subLbl.TextTruncate      = Enum.TextTruncate.AtEnd
@@ -805,12 +830,12 @@ local function NewKeybind(parent, label, sub, defaultKey, callback)
     lbl.Parent            = f
 
     local subLbl = Instance.new("TextLabel")
-    subLbl.Size              = UDim2.new(1, -82, 0, 12)
-    subLbl.Position          = UDim2.new(0, 10, 0, 26)
+    subLbl.Size              = UDim2.new(1, -82, 0, 14)
+    subLbl.Position          = UDim2.new(0, 10, 0, 25)
     subLbl.BackgroundTransparency = 1
     subLbl.Text              = sub
     subLbl.TextColor3        = T.TextDim
-    subLbl.TextSize          = 10
+    subLbl.TextSize          = 12
     subLbl.Font              = Enum.Font.Gotham
     subLbl.TextXAlignment    = Enum.TextXAlignment.Left
     subLbl.TextTruncate      = Enum.TextTruncate.AtEnd
