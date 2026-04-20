@@ -1199,42 +1199,42 @@ local function NewSearchPanel(searchTabData, opts)
     selLabel.TextXAlignment       = Enum.TextXAlignment.Left
     selLabel.TextTruncate         = Enum.TextTruncate.AtEnd
     selLabel.Parent               = bottomPanel
-    local minusBtn = Instance.new("TextButton")
-    minusBtn.Size             = UDim2.new(0, 26, 0, 26)
-    minusBtn.Position         = UDim2.new(0, 8, 0, 28)
-    minusBtn.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-    minusBtn.BorderSizePixel  = 0
-    minusBtn.Text             = "−"
-    minusBtn.TextColor3       = T.Accent
-    minusBtn.TextSize         = 16
-    minusBtn.Font             = Enum.Font.GothamBold
-    minusBtn.AutoButtonColor  = false
-    minusBtn.Parent           = bottomPanel
-    Corner(minusBtn, 4)
-    _regAcc(minusBtn, "TextColor3")
-    local amountLabel = Instance.new("TextLabel")
-    amountLabel.Size                 = UDim2.new(0, 40, 0, 26)
-    amountLabel.Position             = UDim2.new(0, 38, 0, 28)
-    amountLabel.BackgroundTransparency = 1
-    amountLabel.Text                 = "1"
-    amountLabel.TextColor3           = T.Text
-    amountLabel.TextSize             = 13
-    amountLabel.Font                 = Enum.Font.GothamBold
-    amountLabel.TextXAlignment       = Enum.TextXAlignment.Center
-    amountLabel.Parent               = bottomPanel
-    local plusBtn = Instance.new("TextButton")
-    plusBtn.Size             = UDim2.new(0, 26, 0, 26)
-    plusBtn.Position         = UDim2.new(0, 82, 0, 28)
-    plusBtn.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-    plusBtn.BorderSizePixel  = 0
-    plusBtn.Text             = "+"
-    plusBtn.TextColor3       = T.Accent
-    plusBtn.TextSize         = 16
-    plusBtn.Font             = Enum.Font.GothamBold
-    plusBtn.AutoButtonColor  = false
-    plusBtn.Parent           = bottomPanel
-    Corner(plusBtn, 4)
-    _regAcc(plusBtn, "TextColor3")
+    -- ── Etiqueta "Cantidad:" ─────────────────────────────────────
+    local amountTag = Instance.new("TextLabel")
+    amountTag.Size                 = UDim2.new(0, 60, 0, 14)
+    amountTag.Position             = UDim2.new(0, 8, 0, 26)
+    amountTag.BackgroundTransparency = 1
+    amountTag.Text                 = "Cantidad:"
+    amountTag.TextColor3           = T.TextDim
+    amountTag.TextSize             = 11
+    amountTag.Font                 = Enum.Font.Gotham
+    amountTag.TextXAlignment       = Enum.TextXAlignment.Left
+    amountTag.Parent               = bottomPanel
+
+    -- ── TextBox para escribir la cantidad directamente ────────────
+    local amountBg = Instance.new("Frame")
+    amountBg.Size             = UDim2.new(0, 90, 0, 26)
+    amountBg.Position         = UDim2.new(0, 8, 0, 40)
+    amountBg.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    amountBg.BorderSizePixel  = 0
+    amountBg.Parent           = bottomPanel
+    Corner(amountBg, 4)
+    Stroke(amountBg, T.BorderDim, 1)
+
+    local amountBox = Instance.new("TextBox")
+    amountBox.Size                 = UDim2.new(1, -10, 1, 0)
+    amountBox.Position             = UDim2.new(0, 5, 0, 0)
+    amountBox.BackgroundTransparency = 1
+    amountBox.BorderSizePixel      = 0
+    amountBox.Text                 = "1"
+    amountBox.PlaceholderText      = "Cantidad"
+    amountBox.PlaceholderColor3    = T.TextDim
+    amountBox.TextColor3           = T.Text
+    amountBox.TextSize             = 13
+    amountBox.Font                 = Enum.Font.GothamBold
+    amountBox.TextXAlignment       = Enum.TextXAlignment.Center
+    amountBox.ClearTextOnFocus     = false
+    amountBox.Parent               = amountBg
     local sendBtn = Instance.new("TextButton")
     sendBtn.Size             = UDim2.new(0, 110, 0, 26)
     sendBtn.Position         = UDim2.new(1, -118, 0, 28)
@@ -1322,17 +1322,27 @@ local function NewSearchPanel(searchTabData, opts)
     searchBox:GetPropertyChangedSignal("Text"):Connect(function()
         BuildList(searchBox.Text)
     end)
-    minusBtn.MouseButton1Click:Connect(function()
-        if selectedAmount > 1 then
-            selectedAmount -= 1
-            amountLabel.Text = tostring(selectedAmount)
+    -- Actualiza selectedAmount cuando el usuario escribe en el TextBox
+    amountBox:GetPropertyChangedSignal("Text"):Connect(function()
+        -- Solo permitir dígitos
+        local clean = amountBox.Text:gsub("[^%d]", "")
+        if clean ~= amountBox.Text then
+            amountBox.Text = clean
+        end
+        local n = tonumber(clean)
+        if n and n >= 1 then
+            selectedAmount = math.floor(n)
+        elseif clean == "" then
+            selectedAmount = 1
         end
     end)
-    plusBtn.MouseButton1Click:Connect(function()
-        if selectedAmount < 999 then
-            selectedAmount += 1
-            amountLabel.Text = tostring(selectedAmount)
-        end
+    -- Al perder foco, normalizar el texto
+    amountBox.FocusLost:Connect(function()
+        local n = tonumber(amountBox.Text)
+        if not n or n < 1 then n = 1 end
+        n = math.min(math.floor(n), 9999)
+        selectedAmount  = n
+        amountBox.Text  = tostring(n)
     end)
     sendBtn.MouseButton1Click:Connect(function()
         if not selectedWeapon then return end
