@@ -28,30 +28,12 @@ local _accentDarkObjs = {}
 local function _regAcc(o, p)  table.insert(_accentObjs,     {o, p}) end
 local function _regDark(o, p) table.insert(_accentDarkObjs, {o, p}) end
 
--- ── Lucide icon support ─────────────────────────────────────────────────────
--- Usage:
---   local Lucide = require(path.to.lucide-roblox)
---   NytherUI.SetLucideModule(Lucide)
---
--- Then pass icon names to NewTab as:
---   NewTab("Settings", "lucide:settings", 1)
--- or using the Lucide prefix shorthand:
---   NewTab("Home",     "lucide:home",     2)
---
--- You can also create standalone icon ImageLabels anywhere:
---   NytherUI.LucideIcon("settings", parent, 18)  --> returns ImageLabel
-
 local _lucideModule = nil
 
--- Set the required lucide-roblox module so the library can resolve icon names.
 local function SetLucideModule(mod)
     _lucideModule = mod
 end
 
--- Internal: resolves any icon value into a descriptor table.
--- Returns { kind = "image",  id, rectSize, rectOffset }
---       | { kind = "lucide", img }          -- already an ImageLabel
---       | { kind = "text",   text }
 local function _resolveIcon(icon, size)
     size = size or 48
 
@@ -89,11 +71,6 @@ local function _resolveIcon(icon, size)
     return { kind = "text", text = icon }
 end
 
--- Public helper: creates a Lucide ImageLabel you can place anywhere.
--- parent   : Instance to parent the label to (optional, set later if nil)
--- iconName : Lucide icon name, e.g. "settings", "home", "shield"
--- size     : pixel size of the image (default 18)
--- color    : ImageColor3 (default T.Text)
 local function LucideIcon(iconName, parent, size, color)
     size  = size  or 18
     color = color or T.Text
