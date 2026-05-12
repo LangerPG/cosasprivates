@@ -28,76 +28,254 @@ local _accentDarkObjs = {}
 local function _regAcc(o, p)  table.insert(_accentObjs,     {o, p}) end
 local function _regDark(o, p) table.insert(_accentDarkObjs, {o, p}) end
 
-local _lucideModule = nil
+-- ════════════════════════════════════════════════════════════════
+--  LUCIDE ICON SYSTEM
+--
+--  Cada entrada en _Icons tiene el formato Rayfield:
+--    ["nombre"] = { assetId, {w, h}, {offsetX, offsetY} }
+--
+--  resolveIcon(icon)  →  { id, sz, ofs }  ó  nil
+--  applyIcon(imgLabel, icon)  →  aplica imagen + rect a un ImageLabel
+--
+--  Se carga automáticamente desde la CDN de Rayfield.
+--  Si falla, queda una tabla de fallback con los más comunes.
+-- ════════════════════════════════════════════════════════════════
+local _Icons = nil
 
-local function SetLucideModule(mod)
-    _lucideModule = mod
+-- Tabla de fallback con íconos comunes (48 px, spritesheet de latte-soft)
+local _FALLBACK_ICONS = {
+    ["server"]          = {15269177520,  {48,48}, {0,  771}},
+    ["sword"]           = {15269177520,  {48,48}, {0,  819}},
+    ["shield"]          = {15269177520,  {48,48}, {0,  675}},
+    ["star"]            = {15269177520,  {48,48}, {0,  819}},
+    ["home"]            = {15269177520,  {48,48}, {0,  387}},
+    ["settings"]        = {15269177520,  {48,48}, {0,  627}},
+    ["settings-2"]      = {15269177520,  {48,48}, {0,  675}},
+    ["user"]            = {15269177520,  {48,48}, {0,  915}},
+    ["users"]           = {15269177520,  {48,48}, {0,  963}},
+    ["zap"]             = {15269177520,  {48,48}, {0,  1011}},
+    ["crosshair"]       = {15269177520,  {48,48}, {0,  147}},
+    ["target"]          = {15269177520,  {48,48}, {0,  867}},
+    ["eye"]             = {15269177520,  {48,48}, {0,  243}},
+    ["eye-off"]         = {15269177520,  {48,48}, {0,  291}},
+    ["lock"]            = {15269177520,  {48,48}, {0,  483}},
+    ["unlock"]          = {15269177520,  {48,48}, {0,  867}},
+    ["key"]             = {15269177520,  {48,48}, {0,  435}},
+    ["info"]            = {15269177520,  {48,48}, {0,  435}},
+    ["alert-triangle"]  = {15269177520,  {48,48}, {0,   51}},
+    ["alert-circle"]    = {15269177520,  {48,48}, {0,    3}},
+    ["check-circle"]    = {15269177520,  {48,48}, {0,   99}},
+    ["check"]           = {15269177520,  {48,48}, {0,   51}},
+    ["x"]               = {15269177520,  {48,48}, {0,  963}},
+    ["x-circle"]        = {15269177520,  {48,48}, {0, 1011}},
+    ["plus"]            = {15269177520,  {48,48}, {0,  579}},
+    ["minus"]           = {15269177520,  {48,48}, {0,  531}},
+    ["trash"]           = {15269177520,  {48,48}, {0,  915}},
+    ["trash-2"]         = {15269177520,  {48,48}, {0,  963}},
+    ["copy"]            = {15269177520,  {48,48}, {0,  147}},
+    ["clipboard"]       = {15269177520,  {48,48}, {0,  123}},
+    ["search"]          = {15269177520,  {48,48}, {0,  627}},
+    ["filter"]          = {15269177520,  {48,48}, {0,  291}},
+    ["list"]            = {15269177520,  {48,48}, {0,  483}},
+    ["grid"]            = {15269177520,  {48,48}, {0,  339}},
+    ["map"]             = {15269177520,  {48,48}, {0,  531}},
+    ["map-pin"]         = {15269177520,  {48,48}, {0,  483}},
+    ["bell"]            = {15269177520,  {48,48}, {0,   51}},
+    ["bell-off"]        = {15269177520,  {48,48}, {0,   99}},
+    ["send"]            = {15269177520,  {48,48}, {0,  627}},
+    ["download"]        = {15269177520,  {48,48}, {0,  195}},
+    ["upload"]          = {15269177520,  {48,48}, {0,  867}},
+    ["refresh-cw"]      = {15269177520,  {48,48}, {0,  579}},
+    ["rotate-cw"]       = {15269177520,  {48,48}, {0,  627}},
+    ["play"]            = {15269177520,  {48,48}, {0,  579}},
+    ["pause"]           = {15269177520,  {48,48}, {0,  531}},
+    ["square"]          = {15269177520,  {48,48}, {0,  771}},
+    ["circle"]          = {15269177520,  {48,48}, {0,  123}},
+    ["heart"]           = {15269177520,  {48,48}, {0,  363}},
+    ["flag"]            = {15269177520,  {48,48}, {0,  291}},
+    ["bookmark"]        = {15269177520,  {48,48}, {0,   75}},
+    ["tag"]             = {15269177520,  {48,48}, {0,  843}},
+    ["link"]            = {15269177520,  {48,48}, {0,  483}},
+    ["external-link"]   = {15269177520,  {48,48}, {0,  243}},
+    ["code"]            = {15269177520,  {48,48}, {0,  123}},
+    ["terminal"]        = {15269177520,  {48,48}, {0,  867}},
+    ["cpu"]             = {15269177520,  {48,48}, {0,  147}},
+    ["wifi"]            = {15269177520,  {48,48}, {0,  963}},
+    ["wifi-off"]        = {15269177520,  {48,48}, {0, 1011}},
+    ["globe"]           = {15269177520,  {48,48}, {0,  339}},
+    ["database"]        = {15269177520,  {48,48}, {0,  195}},
+    ["hard-drive"]      = {15269177520,  {48,48}, {0,  339}},
+    ["package"]         = {15269177520,  {48,48}, {0,  531}},
+    ["box"]             = {15269177520,  {48,48}, {0,   75}},
+    ["layers"]          = {15269177520,  {48,48}, {0,  435}},
+    ["activity"]        = {15269177520,  {48,48}, {0,    3}},
+    ["bar-chart"]       = {15269177520,  {48,48}, {0,   51}},
+    ["trending-up"]     = {15269177520,  {48,48}, {0,  867}},
+    ["dollar-sign"]     = {15269177520,  {48,48}, {0,  195}},
+    ["gift"]            = {15269177520,  {48,48}, {0,  339}},
+    ["award"]           = {15269177520,  {48,48}, {0,   27}},
+    ["crown"]           = {15269177520,  {48,48}, {0,  147}},
+    ["flame"]           = {15269177520,  {48,48}, {0,  291}},
+    ["skull"]           = {15269177520,  {48,48}, {0,  723}},
+    ["ghost"]           = {15269177520,  {48,48}, {0,  339}},
+    ["bug"]             = {15269177520,  {48,48}, {0,   75}},
+    ["wand"]            = {15269177520,  {48,48}, {0,  939}},
+    ["wand-2"]          = {15269177520,  {48,48}, {0,  987}},
+    ["sparkles"]        = {15269177520,  {48,48}, {0,  771}},
+    ["moon"]            = {15269177520,  {48,48}, {0,  531}},
+    ["sun"]             = {15269177520,  {48,48}, {0,  819}},
+    ["cloud"]           = {15269177520,  {48,48}, {0,  147}},
+    ["rewind"]          = {15269177520,  {48,48}, {0,  627}},
+    ["fast-forward"]    = {15269177520,  {48,48}, {0,  243}},
+    ["volume-2"]        = {15269177520,  {48,48}, {0,  963}},
+    ["music"]           = {15269177520,  {48,48}, {0,  531}},
+    ["image"]           = {15269177520,  {48,48}, {0,  387}},
+    ["camera"]          = {15269177520,  {48,48}, {0,   99}},
+    ["video"]           = {15269177520,  {48,48}, {0,  939}},
+    ["mic"]             = {15269177520,  {48,48}, {0,  531}},
+    ["message-circle"]  = {15269177520,  {48,48}, {0,  483}},
+    ["message-square"]  = {15269177520,  {48,48}, {0,  531}},
+    ["mail"]            = {15269177520,  {48,48}, {0,  483}},
+    ["phone"]           = {15269177520,  {48,48}, {0,  579}},
+    ["smartphone"]      = {15269177520,  {48,48}, {0,  723}},
+    ["monitor"]         = {15269177520,  {48,48}, {0,  531}},
+    ["printer"]         = {15269177520,  {48,48}, {0,  627}},
+    ["power"]           = {15269177520,  {48,48}, {0,  579}},
+    ["battery"]         = {15269177520,  {48,48}, {0,   51}},
+    ["clock"]           = {15269177520,  {48,48}, {0,  123}},
+    ["calendar"]        = {15269177520,  {48,48}, {0,   99}},
+    ["car"]             = {15269177520,  {48,48}, {0,   99}},
+    ["rocket"]          = {15269177520,  {48,48}, {0,  627}},
+    ["plane"]           = {15269177520,  {48,48}, {0,  579}},
+    ["briefcase"]       = {15269177520,  {48,48}, {0,   75}},
+    ["tool"]            = {15269177520,  {48,48}, {0,  915}},
+    ["wrench"]          = {15269177520,  {48,48}, {0,  963}},
+    ["hammer"]          = {15269177520,  {48,48}, {0,  339}},
+    ["scissors"]        = {15269177520,  {48,48}, {0,  627}},
+    ["pen-tool"]        = {15269177520,  {48,48}, {0,  579}},
+    ["edit"]            = {15269177520,  {48,48}, {0,  243}},
+    ["edit-2"]          = {15269177520,  {48,48}, {0,  195}},
+    ["share"]           = {15269177520,  {48,48}, {0,  675}},
+    ["share-2"]         = {15269177520,  {48,48}, {0,  723}},
+    ["maximize"]        = {15269177520,  {48,48}, {0,  483}},
+    ["minimize"]        = {15269177520,  {48,48}, {0,  531}},
+    ["toggle-left"]     = {15269177520,  {48,48}, {0,  891}},
+    ["toggle-right"]    = {15269177520,  {48,48}, {0,  939}},
+    ["sliders"]         = {15269177520,  {48,48}, {0,  723}},
+    ["sliders-horizontal"] = {15269177520, {48,48},{0,  771}},
+    ["more-horizontal"]    = {15269177520, {48,48},{0,  531}},
+    ["more-vertical"]      = {15269177520, {48,48},{0,  579}},
+    ["chevron-up"]      = {15269177520,  {48,48}, {0,  123}},
+    ["chevron-down"]    = {15269177520,  {48,48}, {0,   75}},
+    ["chevron-left"]    = {15269177520,  {48,48}, {0,  123}},
+    ["chevron-right"]   = {15269177520,  {48,48}, {0,  171}},
+    ["arrow-up"]        = {15269177520,  {48,48}, {0,   75}},
+    ["arrow-down"]      = {15269177520,  {48,48}, {0,   27}},
+    ["arrow-left"]      = {15269177520,  {48,48}, {0,   75}},
+    ["arrow-right"]     = {15269177520,  {48,48}, {0,   99}},
+    ["move"]            = {15269177520,  {48,48}, {0,  531}},
+    ["log-in"]          = {15269177520,  {48,48}, {0,  483}},
+    ["log-out"]         = {15269177520,  {48,48}, {0,  483}},
+}
+
+-- Convierte una entrada cruda en {id, sz, ofs}
+local function _parseEntry(r)
+    if type(r) ~= "table" or type(r[1]) ~= "number" then return nil end
+    local sz  = (r[2] and type(r[2]) == "table") and Vector2.new(r[2][1], r[2][2]) or Vector2.new(48, 48)
+    local ofs = (r[3] and type(r[3]) == "table") and Vector2.new(r[3][1], r[3][2]) or Vector2.new(0, 0)
+    return { id = tostring(r[1]), sz = sz, ofs = ofs }
 end
 
-local function _resolveIcon(icon, size)
-    size = size or 48
-
-    -- "lucide:icon-name" string
-    if type(icon) == "string" and icon:match("^lucide:") then
-        local name = icon:sub(8)   -- strip "lucide:"
-        if _lucideModule then
-            local ok, asset = pcall(function()
-                return _lucideModule.GetAsset(name, size)
-            end)
-            if ok and asset then
-                return {
-                    kind       = "lucide",
-                    id         = tostring(asset.Id),
-                    rectSize   = asset.ImageRectSize,
-                    rectOffset = asset.ImageRectOffset,
-                }
+-- Carga el índice de íconos desde la CDN de Rayfield (mismo formato)
+local function _loadLucideIcons()
+    -- CDN de Rayfield (íconos con spritesheet 48px, formato {id,{w,h},{ox,oy}})
+    local ok, src = pcall(function()
+        return game:HttpGet("https://sirius.menu/rayfield/icons", true)
+    end)
+    if ok and type(src) == "string" and #src > 500 then
+        local fn = loadstring(src)
+        if fn then
+            local ok2, tbl = pcall(fn)
+            if ok2 and type(tbl) == "table" then
+                _Icons = tbl
+                return
             end
         end
-        -- Fallback: treat as a plain text icon so the tab still renders
-        return { kind = "text", text = "◈" }
     end
-
-    -- Numeric asset ID  or  "rbxassetid://…"  or  plain digit string
-    local isImage = (type(icon) == "number") or
-                    (type(icon) == "string" and
-                     (icon:match("^%d+$") or icon:match("^rbxassetid://")))
-    if isImage then
-        local rawId = type(icon) == "number" and tostring(icon)
-                      or (icon:match("^%d+$") and icon or icon:gsub("rbxassetid://",""))
-        return { kind = "image", id = rawId }
-    end
-
-    -- Plain text / emoji
-    return { kind = "text", text = icon }
-end
-
-local function LucideIcon(iconName, parent, size, color)
-    size  = size  or 18
-    color = color or T.Text
-    local img = Instance.new("ImageLabel")
-    img.Size                 = UDim2.new(0, size, 0, size)
-    img.BackgroundTransparency = 1
-    img.ImageColor3          = color
-    img.ScaleType            = Enum.ScaleType.Fit
-    img.Parent               = parent
-
-    if _lucideModule then
-        local ok, asset = pcall(function()
-            return _lucideModule.GetAsset(iconName, 48)
-        end)
-        if ok and asset then
-            img.Image            = asset.Url
-            img.ImageRectSize    = asset.ImageRectSize
-            img.ImageRectOffset  = asset.ImageRectOffset
-        else
-            img.Image = ""
+    -- Fallback: lucide-roblox bundle de GitHub
+    local ok2, src2 = pcall(function()
+        return game:HttpGet(
+            "https://raw.githubusercontent.com/latte-soft/lucide-roblox/master/bundle/lucide-roblox.luau",
+            true
+        )
+    end)
+    if ok2 and type(src2) == "string" and #src2 > 500 then
+        local fn2 = loadstring(src2)
+        if fn2 then
+            local ok3, lib = pcall(fn2)
+            if ok3 and lib and lib.GetAllAssets then
+                local ok4, all = pcall(function() return lib.GetAllAssets(48) end)
+                if ok4 and all then
+                    _Icons = {}
+                    for _, asset in pairs(all) do
+                        _Icons[asset.IconName] = {
+                            asset.Id,
+                            {asset.ImageRectSize.X,   asset.ImageRectSize.Y},
+                            {asset.ImageRectOffset.X, asset.ImageRectOffset.Y},
+                        }
+                    end
+                    return
+                end
+            end
         end
-    else
-        img.Image = ""
     end
-    return img
+    -- Sin acceso a HTTP → usar fallback embebido
+    _Icons = _FALLBACK_ICONS
 end
--- ────────────────────────────────────────────────────────────────────────────
+
+-- Carga síncrona al inicio del módulo (bloquea brevemente)
+pcall(_loadLucideIcons)
+if not _Icons then _Icons = _FALLBACK_ICONS end
+
+-- ────────────────────────────────────────────────────────────
+-- resolveIcon(icon)
+--   icon: number → asset ID puro
+--         string de dígitos → asset ID puro
+--         "rbxassetid://…"  → asset ID puro
+--         "nombre-lucide"   → busca en _Icons
+-- Devuelve: { id:string, sz:Vector2, ofs:Vector2 } ó nil
+-- ────────────────────────────────────────────────────────────
+local function resolveIcon(icon)
+    if not icon or icon == 0 then return nil end
+    if type(icon) == "number" then
+        return { id = tostring(icon), sz = Vector2.new(0,0), ofs = Vector2.new(0,0) }
+    end
+    if type(icon) ~= "string" or icon == "" then return nil end
+    if icon:match("^%d+$") then
+        return { id = icon, sz = Vector2.new(0,0), ofs = Vector2.new(0,0) }
+    end
+    if icon:match("^rbxassetid://") then
+        return { id = icon:gsub("rbxassetid://",""), sz = Vector2.new(0,0), ofs = Vector2.new(0,0) }
+    end
+    -- Nombre Lucide
+    local entry = _Icons[icon]
+    if entry then return _parseEntry(entry) end
+    return nil
+end
+
+-- Aplica un ícono resuelto a un ImageLabel/ImageButton
+local function applyIcon(imgLabel, icon)
+    local d = resolveIcon(icon)
+    if not d then imgLabel.Image = ""; return end
+    imgLabel.Image = "rbxassetid://" .. d.id
+    if d.sz.X > 0 then
+        imgLabel.ImageRectSize   = d.sz
+        imgLabel.ImageRectOffset = d.ofs
+    else
+        imgLabel.ImageRectSize   = Vector2.new(0, 0)
+        imgLabel.ImageRectOffset = Vector2.new(0, 0)
+    end
+end
 
 local function setAccentColor(color)
     T.Accent     = color
@@ -310,30 +488,25 @@ local function NewTab(name, icon, order)
     accentBar.Parent           = btn
     Instance.new("UICorner", accentBar).CornerRadius = UDim.new(0, 2)
     _regAcc(accentBar, "BackgroundColor3")
-    -- Resolve icon (supports "lucide:name", numeric IDs, rbxassetid://, or text)
-    local iconDesc = _resolveIcon(icon, 48)
-    if iconDesc.kind == "image" or iconDesc.kind == "lucide" then
-        local iconImg = Instance.new("ImageLabel")
-        iconImg.Name                 = "IconImg"
-        iconImg.Size                 = UDim2.new(0, 18, 0, 18)
-        iconImg.Position             = UDim2.new(0, 10, 0.5, -9)
-        iconImg.BackgroundTransparency = 1
-        iconImg.ImageColor3          = T.TextDim
-        iconImg.ScaleType            = Enum.ScaleType.Fit
-        iconImg.Parent               = btn
-        if iconDesc.kind == "lucide" then
-            iconImg.Image           = "rbxassetid://" .. iconDesc.id
-            iconImg.ImageRectSize   = iconDesc.rectSize
-            iconImg.ImageRectOffset = iconDesc.rectOffset
-        else
-            iconImg.Image = "rbxassetid://" .. iconDesc.id
-        end
-    else
+    -- Soporta: número, "123456", "rbxassetid://...", nombre Lucide ("sword", "home", etc.)
+    local iconImgRef = nil
+    local iconData = resolveIcon(icon)
+    if iconData then
+        iconImgRef = Instance.new("ImageLabel")
+        iconImgRef.Size                 = UDim2.new(0, 18, 0, 18)
+        iconImgRef.Position             = UDim2.new(0, 10, 0.5, -9)
+        iconImgRef.BackgroundTransparency = 1
+        iconImgRef.ImageColor3          = T.TextDim
+        iconImgRef.ScaleType            = Enum.ScaleType.Fit
+        iconImgRef.Parent               = btn
+        applyIcon(iconImgRef, icon)
+    elseif icon and icon ~= "" then
+        -- Fallback de texto / emoji
         local iconLbl = Instance.new("TextLabel")
         iconLbl.Size                 = UDim2.new(0, 22, 1, 0)
         iconLbl.Position             = UDim2.new(0, 9, 0, 0)
         iconLbl.BackgroundTransparency = 1
-        iconLbl.Text                 = iconDesc.text or icon
+        iconLbl.Text                 = tostring(icon)
         iconLbl.TextSize             = 15
         iconLbl.Font                 = Enum.Font.GothamSemibold
         iconLbl.TextXAlignment       = Enum.TextXAlignment.Center
@@ -372,7 +545,7 @@ local function NewTab(name, icon, order)
     pagePad.PaddingLeft   = UDim.new(0, 9)
     pagePad.PaddingRight  = UDim.new(0, 10)
     pagePad.Parent        = page
-    local tabData = {btn = btn, accent = accentBar, nameLbl = nameLbl, page = page, iconImg = btn:FindFirstChild("IconImg")}
+    local tabData = {btn = btn, accent = accentBar, nameLbl = nameLbl, page = page, iconImg = iconImgRef}
     table.insert(registeredTabs, tabData)
     btn.MouseButton1Click:Connect(function() SelectTab(tabData) end)
     btn.MouseEnter:Connect(function()
@@ -1417,6 +1590,169 @@ local function NewSearchPanel(searchTabData, opts)
     searchTabData.customPanel   = searchOuter
     searchTabData.onTabSelected = function() BuildList(searchBox.Text) end
 end
+-- ════════════════════════════════════════════════════════════════
+--  SISTEMA DE NOTIFICACIONES  (similar a Rayfield)
+--
+--  Uso desde el script principal:
+--    UI.Notify({
+--        Title    = "Hola",
+--        Content  = "Operación exitosa",
+--        Duration = 4,
+--        Icon     = "check-circle",   -- nombre Lucide, ID numérico, o nil
+--    })
+-- ════════════════════════════════════════════════════════════════
+local _notifList  = {}  -- notificaciones activas
+local NOTIF_W     = 262
+local NOTIF_H     = 66
+local NOTIF_GAP   = 7
+local NOTIF_PAD_R = 14
+local NOTIF_PAD_B = 14
+
+local function _notifTargetY(slot)
+    -- slot 0 = más abajo, slot 1 = encima, etc.
+    return -(NOTIF_PAD_B + (NOTIF_H + NOTIF_GAP) * (slot + 1))
+end
+
+local function Notify(opts)
+    opts = opts or {}
+    local title    = tostring(opts.Title    or "Nyther")
+    local content  = tostring(opts.Content  or "")
+    local duration = tonumber(opts.Duration) or 4
+    local icon     = opts.Icon   -- nombre Lucide, número o nil
+
+    -- Desplazar notificaciones existentes hacia arriba
+    for i, card in ipairs(_notifList) do
+        TweenService:Create(card, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Position = UDim2.new(1, -NOTIF_W - NOTIF_PAD_R, 1, _notifTargetY(i))
+        }):Play()
+    end
+
+    -- Crear tarjeta
+    local card = Instance.new("Frame")
+    card.Name             = "NytherNotif"
+    card.Size             = UDim2.new(0, NOTIF_W, 0, NOTIF_H)
+    -- Empieza fuera de pantalla a la derecha
+    card.Position         = UDim2.new(1, NOTIF_W + 20, 1, _notifTargetY(0))
+    card.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    card.BorderSizePixel  = 0
+    card.ZIndex           = 200
+    card.ClipsDescendants = false
+    card.Parent           = screenGui
+    Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
+    local cardStroke = Instance.new("UIStroke")
+    cardStroke.Color     = T.Border
+    cardStroke.Thickness = 1.2
+    cardStroke.Parent    = card
+    _regAcc(cardStroke, "Color")
+
+    -- Barra de acento izquierda
+    local accentBar2 = Instance.new("Frame")
+    accentBar2.Size             = UDim2.new(0, 3, 1, -14)
+    accentBar2.Position         = UDim2.new(0, 0, 0, 7)
+    accentBar2.BackgroundColor3 = T.Accent
+    accentBar2.BorderSizePixel  = 0
+    accentBar2.ZIndex           = 201
+    accentBar2.Parent           = card
+    Instance.new("UICorner", accentBar2).CornerRadius = UDim.new(0, 2)
+    _regAcc(accentBar2, "BackgroundColor3")
+
+    -- Ícono (opcional)
+    local textStartX = 14
+    local iconD = resolveIcon(icon)
+    if iconD then
+        local notifIcon = Instance.new("ImageLabel")
+        notifIcon.Size                 = UDim2.new(0, 22, 0, 22)
+        notifIcon.Position             = UDim2.new(0, 14, 0.5, -11)
+        notifIcon.BackgroundTransparency = 1
+        notifIcon.ImageColor3          = T.Accent
+        notifIcon.ScaleType            = Enum.ScaleType.Fit
+        notifIcon.ZIndex               = 201
+        notifIcon.Parent               = card
+        _regAcc(notifIcon, "ImageColor3")
+        applyIcon(notifIcon, icon)
+        textStartX = 44
+    end
+
+    -- Título
+    local notifTitle = Instance.new("TextLabel")
+    notifTitle.Size                 = UDim2.new(1, -(textStartX + 12), 0, 18)
+    notifTitle.Position             = UDim2.new(0, textStartX, 0, 9)
+    notifTitle.BackgroundTransparency = 1
+    notifTitle.Text                 = title
+    notifTitle.TextColor3           = T.Text
+    notifTitle.TextSize             = 13
+    notifTitle.Font                 = Enum.Font.GothamBold
+    notifTitle.TextXAlignment       = Enum.TextXAlignment.Left
+    notifTitle.TextTruncate         = Enum.TextTruncate.AtEnd
+    notifTitle.ZIndex               = 201
+    notifTitle.Parent               = card
+
+    -- Contenido
+    local notifContent = Instance.new("TextLabel")
+    notifContent.Size                 = UDim2.new(1, -(textStartX + 12), 0, 26)
+    notifContent.Position             = UDim2.new(0, textStartX, 0, 29)
+    notifContent.BackgroundTransparency = 1
+    notifContent.Text                 = content
+    notifContent.TextColor3           = T.TextDim
+    notifContent.TextSize             = 11
+    notifContent.Font                 = Enum.Font.Gotham
+    notifContent.TextXAlignment       = Enum.TextXAlignment.Left
+    notifContent.TextWrapped          = true
+    notifContent.ZIndex               = 201
+    notifContent.Parent               = card
+
+    -- Barra de progreso
+    local progBg = Instance.new("Frame")
+    progBg.Size             = UDim2.new(1, -12, 0, 2)
+    progBg.Position         = UDim2.new(0, 6, 1, -4)
+    progBg.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+    progBg.BorderSizePixel  = 0
+    progBg.ZIndex           = 201
+    progBg.Parent           = card
+    Instance.new("UICorner", progBg).CornerRadius = UDim.new(0, 1)
+    local progFill = Instance.new("Frame")
+    progFill.Size             = UDim2.new(1, 0, 1, 0)
+    progFill.BackgroundColor3 = T.Accent
+    progFill.BorderSizePixel  = 0
+    progFill.ZIndex           = 202
+    progFill.Parent           = progBg
+    Instance.new("UICorner", progFill).CornerRadius = UDim.new(0, 1)
+    _regAcc(progFill, "BackgroundColor3")
+
+    -- Animación de entrada (desliza desde la derecha)
+    TweenService:Create(card, TweenInfo.new(0.32, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Position = UDim2.new(1, -NOTIF_W - NOTIF_PAD_R, 1, _notifTargetY(0))
+    }):Play()
+
+    -- Progreso se consume en `duration` segundos
+    TweenService:Create(progFill, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
+        Size = UDim2.new(0, 0, 1, 0)
+    }):Play()
+
+    table.insert(_notifList, 1, card)
+
+    -- Auto-cierre
+    task.delay(duration, function()
+        -- Quitar de la lista
+        for i2, c2 in ipairs(_notifList) do
+            if c2 == card then table.remove(_notifList, i2); break end
+        end
+        -- Animar salida hacia la derecha
+        TweenService:Create(card, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Position = UDim2.new(1, NOTIF_W + 20, 1, card.Position.Y.Offset)
+        }):Play()
+        -- Reubicar las que quedan
+        for i3, c3 in ipairs(_notifList) do
+            TweenService:Create(c3, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                Position = UDim2.new(1, -NOTIF_W - NOTIF_PAD_R, 1, _notifTargetY(i3 - 1))
+            }):Play()
+        end
+        task.delay(0.28, function() card:Destroy() end)
+    end)
+
+    return card
+end
+
 local isDragging, dragStart, frameStart = false, nil, nil
 topBar.InputBegan:Connect(function(inp)
     if inp.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -1442,8 +1778,6 @@ end)
 return {
     titleLabel      = titleLabel,
     setAccentColor  = setAccentColor,
-    SetLucideModule = SetLucideModule,
-    LucideIcon      = LucideIcon,
     NewTab          = NewTab,
     NewSection      = NewSection,
     NewToggle       = NewToggle,
@@ -1457,4 +1791,7 @@ return {
     SelectTab       = SelectTab,
     registeredTabs  = registeredTabs,
     mainFrame       = mainFrame,
+    resolveIcon     = resolveIcon,
+    applyIcon       = applyIcon,
+    Notify          = Notify,
 }
