@@ -2423,6 +2423,33 @@ local function NewMobileButton(opts)
         sg:Destroy()
     end
 
+    -- Actualiza el color del outline en caliente (sin recrear el botón)
+    function self:UpdateStrokeColor(color)
+        if stroke then stroke.Color = color end
+    end
+
+    -- Actualiza la transparencia del outline en caliente
+    function self:UpdateStrokeTransparency(t)
+        if stroke then stroke.Transparency = t end
+    end
+
+    -- Actualiza el grosor del outline en caliente
+    function self:UpdateStrokeThickness(t)
+        if stroke then stroke.Thickness = t end
+    end
+
+    -- Actualiza el color del ícono en caliente
+    function self:UpdateIconColor(color)
+        if iconEl then iconEl.ImageColor3 = color end
+    end
+
+    -- Actualiza los colores ON/OFF en caliente (sin animación)
+    function self:UpdateColors(newColorOn, newColorOff)
+        colorOn  = newColorOn  or colorOn
+        colorOff = newColorOff or colorOff
+        btn.BackgroundColor3 = self._state and colorOn or colorOff
+    end
+
     -- ── Lógica del toggle (click) ─────────────────────────────────
     btn.MouseButton1Click:Connect(function()
         self._state = not self._state
