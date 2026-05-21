@@ -2170,6 +2170,346 @@ local function NewBodyPartSelector(parent, label, sub, selectedParts, allParts, 
 end
 
 -- ══════════════════════════════════════════════════════════════════
+--   MOBILE FLOATING BUTTON
+-- ══════════════════════════════════════════════════════════════════
+--[[
+    NewMobileButton(opts) → buttonObject
+    ─────────────────────────────────────
+    Crea un botón flotante draggable en pantalla, ideal para móvil.
+    Funciona como toggle ON/OFF con animaciones suaves.
+
+    opts (tabla, todos opcionales):
+    ┌─ Posición & Tamaño ──────────────────────────────────────────┐
+    │  position            UDim2   default: UDim2.new(1,-90,1,-140)│
+    │  size                UDim2   default: UDim2.new(0,75,0,75)   │
+    │  anchorPoint         Vector2 default: Vector2.new(0.5, 0.5)  │
+    ├─ Toggle ─────────────────────────────────────────────────────┤
+    │  default             bool    Estado inicial (false)           │
+    │  callback            func    function(state: bool)            │
+    ├─ Colores ────────────────────────────────────────────────────┤
+    │  colorOn             Color3  Verde por defecto                │
+    │  colorOff            Color3  Rojo por defecto                 │
+    │  backgroundTransparency number default: 0.15                  │
+    ├─ Esquinas ───────────────────────────────────────────────────┤
+    │  cornerRadius        UDim    default: UDim.new(0, 16)         │
+    ├─ Outline (UIStroke) ─────────────────────────────────────────┤
+    │  strokeEnabled       bool    default: true                    │
+    │  strokeColor         Color3  default: blanco                  │
+    │  strokeThickness     number  default: 2                       │
+    │  strokeTransparency  number  default: 0.5                     │
+    ├─ Gradiente ──────────────────────────────────────────────────┤
+    │  gradientEnabled     bool    default: true                    │
+    ├─ Icono ──────────────────────────────────────────────────────┤
+    │  icon       string/number    Nombre Lucide, "rbxassetid://X", │
+    │                              o número de asset ID             │
+    │  iconSize            UDim2   default: UDim2.new(0,28,0,28)   │
+    │  iconColor           Color3  default: blanco                  │
+    │  spinOnToggle        bool    Gira el ícono al hacer toggle     │
+    ├─ Etiqueta ───────────────────────────────────────────────────┤
+    │  labelOn             string  default: "ON"                    │
+    │  labelOff            string  default: "OFF"                   │
+    │  showLabel           bool    default: true                    │
+    │  labelColor          Color3  default: blanco                  │
+    ├─ Comportamiento ─────────────────────────────────────────────┤
+    │  draggable           bool    default: true                    │
+    │  hidden              bool    Invisible pero funcional          │
+    │  displayOrder        number  default: 999                     │
+    └──────────────────────────────────────────────────────────────┘
+
+    Métodos del objeto devuelto:
+        :SetState(bool)   → Cambia estado y actualiza visuals
+        :SetHidden(bool)  → Oculta/muestra el botón
+        :Destroy()        → Elimina el ScreenGui
+        :GetState()       → Devuelve el estado actual (bool)
+--]]
+
+local function NewMobileButton(opts)
+    opts = opts or {}
+
+    -- ── Defaults ──────────────────────────────────────────────────
+    local position        = opts.position             or UDim2.new(1, -90, 1, -140)
+    local size            = opts.size                 or UDim2.new(0, 75, 0, 75)
+    local anchorPt        = opts.anchorPoint          or Vector2.new(0.5, 0.5)
+    local state           = opts.default              or false
+    local callback        = opts.callback
+    local colorOn         = opts.colorOn              or Color3.fromRGB(46, 204, 113)
+    local colorOff        = opts.colorOff             or Color3.fromRGB(231, 76, 60)
+    local bgTransp        = opts.backgroundTransparency ~= nil and opts.backgroundTransparency or 0.15
+    local cornerRad       = opts.cornerRadius         or UDim.new(0, 16)
+    local strokeEnabled   = opts.strokeEnabled        ~= false
+    local strokeColor     = opts.strokeColor          or Color3.fromRGB(255, 255, 255)
+    local strokeThickness = opts.strokeThickness      or 2
+    local strokeTransp    = opts.strokeTransparency   ~= nil and opts.strokeTransparency or 0.5
+    local gradEnabled     = opts.gradientEnabled      ~= false
+    local iconOpt         = opts.icon
+    local iconSize        = opts.iconSize             or UDim2.new(0, 28, 0, 28)
+    local iconColor       = opts.iconColor            or Color3.fromRGB(255, 255, 255)
+    local spinOnToggle    = opts.spinOnToggle         ~= false
+    local labelOn         = opts.labelOn              or "ON"
+    local labelOff        = opts.labelOff             or "OFF"
+    local showLabel       = opts.showLabel            ~= false
+    local labelColor      = opts.labelColor           or Color3.fromRGB(255, 255, 255)
+    local draggable       = opts.draggable            ~= false
+    local hidden          = opts.hidden               or false
+    local displayOrder    = opts.displayOrder         or 999
+
+    -- ── ScreenGui ─────────────────────────────────────────────────
+    local sg = Instance.new("ScreenGui")
+    sg.Name           = "NytherMobileBtn"
+    sg.ResetOnSpawn   = false
+    sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    sg.DisplayOrder   = displayOrder
+
+    -- Intentar poner en CoreGui (mayor prioridad en móvil)
+    local ok = pcall(function()
+        sg.Parent = game:GetService("CoreGui")
+    end)
+    if not ok then
+        sg.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    end
+
+    -- ── Botón principal ───────────────────────────────────────────
+    local btn = Instance.new("TextButton")
+    btn.Name                  = "MobileButton"
+    btn.Size                  = size
+    btn.Position              = position
+    btn.AnchorPoint           = anchorPt
+    btn.BackgroundColor3      = state and colorOn or colorOff
+    btn.BackgroundTransparency = bgTransp
+    btn.BorderSizePixel       = 0
+    btn.Text                  = ""
+    btn.AutoButtonColor       = false
+    btn.Parent                = sg
+
+    Instance.new("UICorner", btn).CornerRadius = cornerRad
+
+    -- ── Outline (UIStroke) ────────────────────────────────────────
+    local stroke = nil
+    if strokeEnabled then
+        stroke = Instance.new("UIStroke")
+        stroke.Name            = "Outline"
+        stroke.Color           = strokeColor
+        stroke.Thickness       = strokeThickness
+        stroke.Transparency    = strokeTransp
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        stroke.Parent          = btn
+    end
+
+    -- ── Gradiente sutil ───────────────────────────────────────────
+    local grad = nil
+    if gradEnabled then
+        grad = Instance.new("UIGradient")
+        grad.Name = "Gradient"
+        grad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 180, 180)),
+        })
+        grad.Rotation    = 90
+        grad.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.88),
+            NumberSequenceKeypoint.new(1, 0.94),
+        })
+        grad.Parent = btn
+    end
+
+    -- ── Icono ─────────────────────────────────────────────────────
+    local iconEl = nil
+    local iconRotation = 0
+
+    if iconOpt then
+        local resolvedLucide = nil
+        local resolvedRbx    = nil
+
+        if type(iconOpt) == "string" and not iconOpt:match("^%d+$") and not iconOpt:match("^rbxassetid://") then
+            -- Nombre Lucide
+            resolvedLucide = getLucideAsset(iconOpt)
+        elseif type(iconOpt) == "number" then
+            resolvedRbx = tostring(iconOpt)
+        elseif type(iconOpt) == "string" and iconOpt:match("^rbxassetid://") then
+            resolvedRbx = iconOpt:gsub("rbxassetid://", "")
+        elseif type(iconOpt) == "string" and iconOpt:match("^%d+$") then
+            resolvedRbx = iconOpt
+        end
+
+        local img = Instance.new("ImageLabel")
+        img.Name                  = "Icon"
+        img.Size                  = iconSize
+        img.AnchorPoint           = Vector2.new(0.5, 0.5)
+        img.Position              = showLabel
+            and UDim2.new(0.5, 0, 0.5, -6)
+            or  UDim2.new(0.5, 0, 0.5, 0)
+        img.BackgroundTransparency = 1
+        img.ImageColor3            = iconColor
+        img.ScaleType              = Enum.ScaleType.Fit
+        img.Parent                 = btn
+
+        if resolvedLucide then
+            img.Image           = resolvedLucide.Url
+            img.ImageRectSize   = resolvedLucide.ImageRectSize
+            img.ImageRectOffset = resolvedLucide.ImageRectOffset
+        elseif resolvedRbx then
+            img.Image = "rbxassetid://" .. resolvedRbx
+        end
+
+        iconEl = img
+    end
+
+    -- ── Etiqueta de estado ────────────────────────────────────────
+    local statusLbl = nil
+    if showLabel then
+        statusLbl = Instance.new("TextLabel")
+        statusLbl.Name                  = "StatusLabel"
+        statusLbl.Size                  = UDim2.new(1, 0, 0, 15)
+        statusLbl.Position              = UDim2.new(0.5, 0, 1, 4)
+        statusLbl.AnchorPoint           = Vector2.new(0.5, 0)
+        statusLbl.BackgroundTransparency = 1
+        statusLbl.Text                  = state and labelOn or labelOff
+        statusLbl.TextColor3            = labelColor
+        statusLbl.TextSize              = 11
+        statusLbl.Font                  = Enum.Font.GothamBold
+        statusLbl.TextStrokeTransparency = 0.4
+        statusLbl.TextStrokeColor3      = Color3.fromRGB(0, 0, 0)
+        statusLbl.Parent                = btn
+    end
+
+    -- ── Objeto de control (API pública) ───────────────────────────
+    local self = {}
+    self._state  = state
+    self._hidden = hidden
+
+    local function applyVisuals()
+        -- Color de fondo según estado
+        local targetColor = self._state and colorOn or colorOff
+        TweenService:Create(btn, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {
+            BackgroundColor3 = targetColor,
+        }):Play()
+        -- Etiqueta
+        if statusLbl then
+            statusLbl.Text = self._state and labelOn or labelOff
+        end
+    end
+
+    local function applyHidden()
+        local t = self._hidden and 1 or 0
+        btn.BackgroundTransparency = self._hidden and 1 or bgTransp
+        if iconEl    then iconEl.ImageTransparency  = t end
+        if statusLbl then statusLbl.TextTransparency = t end
+        if stroke    then stroke.Transparency       = self._hidden and 1 or strokeTransp end
+        if grad then
+            grad.Transparency = self._hidden
+                and NumberSequence.new(1)
+                or  NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 0.88),
+                    NumberSequenceKeypoint.new(1, 0.94),
+                })
+        end
+    end
+
+    function self:SetState(newState)
+        self._state = newState
+        applyVisuals()
+    end
+
+    function self:SetHidden(newHidden)
+        self._hidden = newHidden
+        applyHidden()
+    end
+
+    function self:GetState()
+        return self._state
+    end
+
+    function self:Destroy()
+        sg:Destroy()
+    end
+
+    -- ── Lógica del toggle (click) ─────────────────────────────────
+    btn.MouseButton1Click:Connect(function()
+        self._state = not self._state
+
+        -- Color con tween
+        local targetColor = self._state and colorOn or colorOff
+        TweenService:Create(btn, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {
+            BackgroundColor3 = targetColor,
+        }):Play()
+
+        -- Animación de escala (bounce)
+        local origSize = btn.Size
+        local bigSize  = UDim2.new(
+            origSize.X.Scale, origSize.X.Offset + 14,
+            origSize.Y.Scale, origSize.Y.Offset + 14
+        )
+        local sc = TweenService:Create(btn,
+            TweenInfo.new(0.1, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+            { Size = bigSize }
+        )
+        sc:Play()
+        sc.Completed:Connect(function()
+            TweenService:Create(btn,
+                TweenInfo.new(0.18, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out),
+                { Size = origSize }
+            ):Play()
+        end)
+
+        -- Spin del ícono
+        if spinOnToggle and iconEl then
+            iconRotation = iconRotation + 360
+            TweenService:Create(iconEl,
+                TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
+                { Rotation = iconRotation }
+            ):Play()
+        end
+
+        -- Etiqueta
+        if statusLbl then
+            statusLbl.Text = self._state and labelOn or labelOff
+        end
+
+        -- Callback
+        if callback then callback(self._state) end
+    end)
+
+    -- ── Drag ──────────────────────────────────────────────────────
+    if draggable then
+        local dragging, dragStart, startPos = false, nil, nil
+
+        btn.InputBegan:Connect(function(inp)
+            if inp.UserInputType == Enum.UserInputType.Touch
+            or inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = true
+                dragStart = inp.Position
+                startPos  = btn.Position
+            end
+        end)
+
+        UserInputService.InputChanged:Connect(function(inp)
+            if not dragging then return end
+            if inp.UserInputType == Enum.UserInputType.Touch
+            or inp.UserInputType == Enum.UserInputType.MouseMovement then
+                local d = inp.Position - dragStart
+                btn.Position = UDim2.new(
+                    startPos.X.Scale, startPos.X.Offset + d.X,
+                    startPos.Y.Scale, startPos.Y.Offset + d.Y
+                )
+            end
+        end)
+
+        UserInputService.InputEnded:Connect(function(inp)
+            if inp.UserInputType == Enum.UserInputType.Touch
+            or inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = false
+            end
+        end)
+    end
+
+    -- ── Estado inicial ────────────────────────────────────────────
+    applyVisuals()
+    applyHidden()
+
+    return self
+end
+
+-- ══════════════════════════════════════════════════════════════════
 -- ══════════════════════════════════════════════════════════════════
 return {
     titleLabel           = titleLabel,
@@ -2185,6 +2525,7 @@ return {
     NewColorPicker       = NewColorPicker,
     NewBodyPartSelector  = NewBodyPartSelector,
     NewSearchPanel       = NewSearchPanel,
+    NewMobileButton      = NewMobileButton,
     SelectTab            = SelectTab,
     registeredTabs       = registeredTabs,
     mainFrame            = mainFrame,
